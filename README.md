@@ -38,6 +38,13 @@ The `blue-green.yml` workflow automates the deployment process upon a push to th
 
 Fork or clone the repository to begin. Ensure AWS credentials for GitHub Actions are set up correctly and update Terraform and script files as necessary for your infrastructure requirements.
 
+## Secrets:
+** AWS_ACCESS_KEY_ID
+** AWS_SECRET_ACCESS_KEY
+** GH_ACTION_TOKEN
+** SEYITHAN_PFX (convert .pfx file to base64)
+** SEYITHAN_PFX_SECRET (secret for your pfx file as plaintext)
+
 ## Status Code during Deploymnet
 
 Check the link below:
