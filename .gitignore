@@ -1,0 +1,19 @@
+# Ignore terraform .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Ignore terraform .tfstate files
+*.tfvars
+
+# Ignore .terraform directory
+.terraform/
+
+# Ignore .pem files
+*.pem
+
+# Ignore node_modules directory
+**/node_modules/
+
+# Ignore build output
+**/build/
+**/dist/

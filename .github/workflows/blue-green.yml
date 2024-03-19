@@ -1,0 +1,122 @@
+name: Blue-Green-Deploy-Demo-Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DOMAIN_NAME: "seyithanalkan.com"
+  IIS_PORT: 8080
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform
+
+      - name: Terraform Plan
+        run: terraform plan -var="domain_name=${{ env.DOMAIN_NAME }}" -var="iis_port=${{ env.IIS_PORT }}" -var="repo_name=${{ github.event.repository.name }}" -var="seyithan_pfx=${{ secrets.SEYITHAN_PFX }}" -var="seyithan_pfx_secret=${{ secrets.SEYITHAN_PFX_SECRET }}" -var="gh_action_token=${{ secrets.GH_ACTION_TOKEN }}"
+        working-directory: terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var="domain_name=${{ env.DOMAIN_NAME }}" -var="iis_port=${{ env.IIS_PORT }}" -var="repo_name=${{ github.event.repository.name }}" -var="seyithan_pfx=${{ secrets.SEYITHAN_PFX }}" -var="seyithan_pfx_secret=${{ secrets.SEYITHAN_PFX_SECRET }}" -var="gh_action_token=${{ secrets.GH_ACTION_TOKEN }}"
+        working-directory: terraform
+
+      
+  build:
+    runs-on: ubuntu-latest
+    needs: terraform
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '21'
+
+      - name: Install dependencies
+        working-directory: iis-demo
+        run: npm install
+
+      - name: Lowercase Repo Name
+        id: lowercase_repo_name
+        run: echo "::set-output name=lc_name::$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')"
+      
+
+      - name: Build
+        working-directory: iis-demo
+        run: npm run build
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+
+      - name: Create artifact and upload
+        working-directory: iis-demo
+        run: |
+          ZIP_NAME="${{ steps.lowercase_repo_name.outputs.lc_name }}-${{ github.run_number }}.zip"
+          echo "ZIP Name: $ZIP_NAME"
+          zip -r "../$ZIP_NAME" build
+          BUCKET_NAME="seyithan-${{ steps.lowercase_repo_name.outputs.lc_name }}-deploy"
+          echo "Uploading to Bucket: $BUCKET_NAME"
+          aws s3 cp "../$ZIP_NAME" "s3://$BUCKET_NAME/"
+  
+        
+
+  deploy-green:
+    runs-on: [self-hosted, "${{ github.event.repository.name }}-2"]
+    needs: [terraform, build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Create DevOps Directory
+        run: New-Item -Path C:\runner_work\devops -ItemType Directory -Force
+
+
+      - name: Copy Scripts and JSON to DevOps Directory
+        run: Copy-Item -Path scripts\* -Destination C:\runner_work\devops\ -Force
+
+      - name: Copy Scripts and JSON to DevOps Directory
+        run: Copy-Item -Path scripts\json\* -Destination C:\runner_work\devops\json\ -Force
+          
+
+      - name: Run Green Deploy Script
+        run: C:\runner_work\devops\green-deploy.ps1 "${{ github.event.repository.name }}-${{ github.run_number }}" "${{ github.event.repository.name }}" "${{ github.event.repository.name }}.${{ env.DOMAIN_NAME }}" "${{ env.IIS_PORT }}"
+
+  deploy-blue:
+    runs-on: [self-hosted, "${{ github.event.repository.name }}-1"]
+    needs: deploy-green
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Create DevOps Directory
+        run: New-Item -Path C:\runner_work\devops -ItemType Directory -Force
+
+      - name: Copy Scripts and JSON to DevOps Directory
+        run: Copy-Item -Path scripts\* -Destination C:\runner_work\devops\ -Force
+
+      - name: Copy Scripts and JSON to DevOps Directory
+        run: Copy-Item -Path scripts\json\* -Destination C:\runner_work\devops\json\ -Force
+          
+
+      - name: Run Blue Deploy Script
+        run: C:\runner_work\devops\blue-deploy.ps1 "${{ github.event.repository.name }}-${{ github.run_number }}" "${{ github.event.repository.name }}" "${{ github.event.repository.name }}.${{ env.DOMAIN_NAME }}" "${{ env.IIS_PORT }}"

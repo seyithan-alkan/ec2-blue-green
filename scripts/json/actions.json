@@ -1,0 +1,21 @@
+[
+    {
+        "Type":"forward",
+        "ForwardConfig":{
+            "TargetGroups":[
+                {
+                    "TargetGroupArn":"blue-target-group",
+                    "Weight":blue-weight
+                },
+                {
+                    "TargetGroupArn":"green-target-group",
+                    "Weight":green-weight
+                }
+            ],
+            "TargetGroupStickinessConfig": {
+                "Enabled": false,
+                "DurationSeconds": 900
+            }
+        }
+    }
+]
