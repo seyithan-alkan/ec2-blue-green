@@ -41,7 +41,7 @@ Fork or clone the repository to begin. Ensure AWS credentials for GitHub Actions
 ## Secrets:
 - AWS_ACCESS_KEY_ID
 - AWS_SECRET_ACCESS_KEY
-- GH_ACTION_TOKEN
+- GH_ACTION_TOKEN (Personal Access Token with manage runners)
 - SEYITHAN_PFX (convert .pfx file to base64)
 - SEYITHAN_PFX_SECRET (secret for your pfx file as plaintext)
 
